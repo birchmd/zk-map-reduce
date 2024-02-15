@@ -1,15 +1,26 @@
 use {
     client_route::ClientFiles,
-    std::net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    miden::Program,
+    state::Msg,
+    std::{
+        net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+        sync::Arc,
+    },
+    tokio::sync::mpsc::UnboundedSender,
     warp::{http::Response, reply::Reply, Filter},
     zkmr_types::Submission,
 };
 
 mod client_route;
+mod state;
+mod verifier;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let server_addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 8080));
+    let (state, sender) = state::State::create();
+    let program = state.program();
+    let state_task = state.spawn_actor();
 
     // Serve files for client
     let ClientFiles {
@@ -56,7 +67,11 @@ async fn main() -> anyhow::Result<()> {
     });
 
     // Endpoint for clients to submit work
-    let submit_route = warp::path("submit").and(warp::body::json().map(handle_submit));
+    let submit_route = warp::path("submit").and(
+        warp::body::json()
+            .and(warp::any().map(move || (program.clone(), sender.clone())))
+            .map(handle_submit),
+    );
 
     let route = wasm_route
         .or(js_route)
@@ -65,11 +80,26 @@ async fn main() -> anyhow::Result<()> {
         .or(submit_route);
 
     warp::serve(route).run(server_addr).await;
+    state_task.await?;
     Ok(())
 }
 
-fn handle_submit(submission: Submission) -> impl Reply {
-    // TODO: real handling
-    println!("{submission:?}");
+fn handle_submit(submission: Submission, env: (Arc<Program>, UnboundedSender<Msg>)) -> impl Reply {
+    let (program, sender) = env;
+    let verify_result = verifier::validate_submission(&program, &submission);
+    let msg = match verify_result {
+        Ok(_) => Msg::CompletedJob {
+            worker_id: submission.worker_id,
+            job_id: submission.job_id,
+            result: submission.result,
+        },
+        Err(e) => Msg::Log {
+            message: format!(
+                "Incorrect submission from {}: {:?}",
+                submission.worker_id, e
+            ),
+        },
+    };
+    sender.send(msg).ok();
     warp::reply()
 }

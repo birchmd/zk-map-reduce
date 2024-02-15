@@ -58,10 +58,12 @@ fn main() -> Result<(), JsValue> {
         } else {
             proof.value
         };
+        let overflow_addrs = proof.overflow_addrs.iter().map(|x| x.to_string()).collect();
         let submission = Submission {
             worker_id: worker_id.value(),
             job_id,
             result,
+            overflow_addrs,
             proof: proof.encoded(),
         };
         let json = serde_json::to_string(&submission).unwrap_or_default();

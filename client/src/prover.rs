@@ -18,12 +18,14 @@ pub fn prove(program: &Program, input: u8) -> ProveResult {
     let value = stack_outputs.stack()[0] as u32;
     ProveResult {
         value,
+        overflow_addrs: stack_outputs.overflow_addrs().to_vec(),
         proof: proof.to_bytes(),
     }
 }
 
 pub struct ProveResult {
     pub value: u32,
+    pub overflow_addrs: Vec<u64>,
     pub proof: Vec<u8>,
 }
 
