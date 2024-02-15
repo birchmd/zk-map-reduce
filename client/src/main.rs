@@ -1,22 +1,32 @@
-use wasm_bindgen::{closure::Closure, prelude::wasm_bindgen, JsCast, JsValue};
-use web_sys::{Document, Element, HtmlElement};
-use zkmr_types::Submission;
+use {
+    self::toggle::Toggle,
+    wasm_bindgen::{closure::Closure, prelude::wasm_bindgen, JsCast, JsValue},
+    web_sys::{Document, HtmlElement},
+    zkmr_types::Submission,
+};
+
+mod toggle;
 
 fn main() -> Result<(), JsValue> {
     let window = web_sys::window().expect("no global `window` exists");
     let document = window.document().expect("should have a document on window");
     let body = document.body().expect("document should have a body");
 
-    let switch = create_toggle(&document)?;
-    body.append_child(&switch)?;
+    let toggle = Toggle::new(&document)?;
+    toggle.append_to_body(&body)?;
+    body.append_child(document.create_element("br").as_ref()?)?;
 
-    let submit = create_button(&document, "submit", || {
-        // TODO: change depending on toggle
+    let submit = create_button(&document, "submit", move || {
         // TODO: generate real proof
+        let proof = if toggle.is_checked() {
+            "A dishonest proof"
+        } else {
+            "The honest proof"
+        };
         let submission = Submission {
             job_id: 0,
             result: 0,
-            proof: "The proof".into(),
+            proof: proof.into(),
         };
         let json = serde_json::to_string(&submission).unwrap_or_default();
         submit_to_server(json);
@@ -24,18 +34,6 @@ fn main() -> Result<(), JsValue> {
     body.append_child(&submit)?;
 
     Ok(())
-}
-
-fn create_toggle(document: &Document) -> Result<Element, JsValue> {
-    let switch = document.create_element("label")?;
-    switch.set_attribute("class", "switch")?;
-    let input = document.create_element("input")?;
-    input.set_attribute("type", "checkbox")?;
-    switch.append_child(&input)?;
-    let span = document.create_element("span")?;
-    span.set_attribute("class", "slider round")?;
-    switch.append_child(&span)?;
-    Ok(switch)
 }
 
 fn create_button<F: FnMut() + 'static>(
