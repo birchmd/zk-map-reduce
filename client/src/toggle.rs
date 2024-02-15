@@ -9,9 +9,10 @@ pub struct Toggle {
 }
 
 impl Toggle {
-    pub fn new(document: &Document) -> Result<Self, JsValue> {
+    pub fn new(id: &str, document: &Document) -> Result<Self, JsValue> {
         let switch = document.create_element("label")?;
         switch.set_attribute("class", "switch")?;
+        switch.set_attribute("id", id)?;
         let input = document.create_element("input")?;
         input.set_attribute("type", "checkbox")?;
         switch.append_child(&input)?;

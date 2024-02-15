@@ -1,0 +1,5 @@
+# Computes x^2 for a given x.
+begin
+    dup
+    mul
+end
