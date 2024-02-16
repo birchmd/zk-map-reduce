@@ -6,3 +6,14 @@ pub struct Submission {
     pub overflow_addrs: Vec<String>,
     pub proof: String,
 }
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone, PartialEq, Eq)]
+pub struct Response {
+    pub result: String,
+}
+
+impl Response {
+    pub fn new(result: String) -> Self {
+        Self { result }
+    }
+}

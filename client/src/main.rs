@@ -1,7 +1,9 @@
 use {
-    wasm_bindgen::{closure::Closure, prelude::wasm_bindgen, JsCast, JsValue},
+    gloo::{dialogs, net::http::Request},
+    wasm_bindgen::{closure::Closure, JsCast, JsValue},
     web_sys::{
         Document, Element, HtmlButtonElement, HtmlElement, HtmlInputElement, HtmlSelectElement,
+        RequestCredentials, RequestMode,
     },
     zkmr_types::Submission,
 };
@@ -61,7 +63,6 @@ fn main() -> Result<(), JsValue> {
             .get(program_name.as_str())
             .expect("Program must be in the map");
         let proof = prover::prove(miden_program, job_id);
-        let result = proof.output_stack.first().copied().unwrap();
         let overflow_addrs = proof.overflow_addrs.iter().map(|x| x.to_string()).collect();
         let encoded_proof = proof.encoded();
         let submission = Submission {
@@ -71,9 +72,7 @@ fn main() -> Result<(), JsValue> {
             overflow_addrs,
             proof: encoded_proof,
         };
-        let json = serde_json::to_string(&submission).unwrap_or_default();
-        let msg = format!("Proof submitted for job ID {job_id} with result {result}");
-        submit_to_server(json, msg);
+        submit_to_server(submission);
         button.set_disabled(false);
     })?;
     body.append_child(&submit)?;
@@ -128,16 +127,29 @@ fn create_button<F: FnMut(HtmlButtonElement) + 'static>(
     Ok(elem.dyn_into().unwrap())
 }
 
-#[wasm_bindgen(inline_js = r#"export function submit_to_server(x, alert_msg) {
-        fetch("/submit", {
-            credentials: "same-origin",
-            mode: "same-origin",
-            method: "post",
-            headers: { "Content-Type": "application/json" },
-            body: x
-        });
-        alert(alert_msg);
-    }"#)]
-extern "C" {
-    fn submit_to_server(x: String, alert_msg: String);
+fn submit_to_server(submission: Submission) {
+    wasm_bindgen_futures::spawn_local(async move {
+        inner_submit_to_server(submission)
+            .await
+            .unwrap_or_else(|e| {
+                let msg = format!("Error submitting to server: {e:?}");
+                dialogs::alert(&msg);
+            })
+    });
+}
+
+async fn inner_submit_to_server(submission: Submission) -> Result<(), gloo::net::Error> {
+    let request = Request::post("/submit")
+        .mode(RequestMode::SameOrigin)
+        .credentials(RequestCredentials::SameOrigin)
+        .json(&submission)?;
+    let job_id = submission.job_id;
+    let result = submission.output_stack.first().copied().unwrap();
+    let response = request.send().await?;
+    let submit_message = format!("Proof submitted for job ID {job_id} with result {result}");
+    dialogs::alert(&submit_message);
+    let response: zkmr_types::Response = response.json().await?;
+    let response_message = format!("Server response: {}", response.result);
+    dialogs::alert(&response_message);
+    Ok(())
 }

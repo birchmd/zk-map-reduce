@@ -27,10 +27,8 @@ async fn main() -> anyhow::Result<()> {
         wasm,
         js,
         html,
-        snippet,
         wasm_name,
         js_name,
-        snippet_name,
     } = client_route::files().await?;
     let wasm_route = warp::path(wasm_name).map(move || {
         Response::builder()
@@ -44,21 +42,6 @@ async fn main() -> anyhow::Result<()> {
             .header("Content-Length", js.len())
             .body(js.clone())
     });
-    let [snippet_0, snippet_1, snippet_2]: [String; 3] = snippet_name
-        .split('/')
-        .map(Into::into)
-        .collect::<Vec<String>>()
-        .try_into()
-        .expect("snippet path has 3 parts");
-    let snippet_route = warp::path(snippet_0)
-        .and(warp::path(snippet_1))
-        .and(warp::path(snippet_2))
-        .map(move || {
-            Response::builder()
-                .header("Content-Type", "text/javascript")
-                .header("Content-Length", snippet.len())
-                .body(snippet.clone())
-        });
     let html_route = warp::path("client").map(move || {
         Response::builder()
             .header("Content-Type", "text/html")
@@ -73,11 +56,7 @@ async fn main() -> anyhow::Result<()> {
             .map(handle_submit),
     );
 
-    let route = wasm_route
-        .or(js_route)
-        .or(snippet_route)
-        .or(html_route)
-        .or(submit_route);
+    let route = wasm_route.or(js_route).or(html_route).or(submit_route);
 
     warp::serve(route).run(server_addr).await;
     state_task.await?;
@@ -88,7 +67,7 @@ fn handle_submit(submission: Submission, env: (Arc<Program>, UnboundedSender<Msg
     let (program, sender) = env;
     let verify_result = verifier::validate_submission(&program, &submission);
     let result = submission.output_stack.first().copied().unwrap();
-    let msg = match verify_result {
+    let msg = match verify_result.as_ref() {
         Ok(_) => Msg::CompletedJob {
             worker_id: submission.worker_id,
             job_id: submission.job_id,
@@ -102,5 +81,10 @@ fn handle_submit(submission: Submission, env: (Arc<Program>, UnboundedSender<Msg
         },
     };
     sender.send(msg).ok();
-    warp::reply()
+    let response: String = match verify_result {
+        Ok(_) => "Thank you for your honest work.".into(),
+        Err(e) => format!("Your submission was incorrect. Error = {e:?}"),
+    };
+    let response = zkmr_types::Response::new(response);
+    warp::reply::json(&response)
 }

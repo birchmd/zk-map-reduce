@@ -8,10 +8,8 @@ pub struct ClientFiles {
     pub wasm: Vec<u8>,
     pub js: String,
     pub html: String,
-    pub snippet: String,
     pub wasm_name: String,
     pub js_name: String,
-    pub snippet_name: String,
 }
 
 pub async fn files() -> anyhow::Result<ClientFiles> {
@@ -37,34 +35,12 @@ pub async fn files() -> anyhow::Result<ClientFiles> {
         .ok_or_else(|| anyhow::Error::msg("HTML file not found"))?;
     let html = read_text(html_path).await?;
 
-    let snippet_dir = std::fs::read_dir(base_path.join("snippets"))?
-        .find_map(|entry| {
-            let entry = entry.ok()?;
-            if entry.file_name().to_str()?.starts_with("zkmr") {
-                Some(entry.path())
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| anyhow::Error::msg("snippet file not found"))?;
-    let snippet_path = snippet_dir.join("inline0.js");
-    let snippet = read_text(&snippet_path).await?;
-    let snippet_name = format!(
-        "snippets/{}/inline0.js",
-        snippet_dir
-            .file_name()
-            .and_then(|x| x.to_str())
-            .unwrap_or("")
-    );
-
     let result = ClientFiles {
         wasm,
         js,
         html,
-        snippet,
         wasm_name,
         js_name,
-        snippet_name,
     };
     Ok(result)
 }
