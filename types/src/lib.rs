@@ -2,7 +2,7 @@
 pub struct Submission {
     pub worker_id: String,
     pub job_id: u8,
-    pub result: u32,
+    pub output_stack: Vec<u32>,
     pub overflow_addrs: Vec<String>,
     pub proof: String,
 }

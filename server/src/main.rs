@@ -87,16 +87,17 @@ async fn main() -> anyhow::Result<()> {
 fn handle_submit(submission: Submission, env: (Arc<Program>, UnboundedSender<Msg>)) -> impl Reply {
     let (program, sender) = env;
     let verify_result = verifier::validate_submission(&program, &submission);
+    let result = submission.output_stack.first().copied().unwrap();
     let msg = match verify_result {
         Ok(_) => Msg::CompletedJob {
             worker_id: submission.worker_id,
             job_id: submission.job_id,
-            result: submission.result,
+            result,
         },
         Err(e) => Msg::Log {
             message: format!(
-                "Incorrect submission from {}: {:?}",
-                submission.worker_id, e
+                "Incorrect submission for job ID {} from {}: {:?}",
+                submission.job_id, submission.worker_id, e
             ),
         },
     };

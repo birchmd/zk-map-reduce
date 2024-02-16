@@ -1,0 +1,5 @@
+# Returns a number from the advice provider.
+begin
+    drop
+    adv_push.1
+end

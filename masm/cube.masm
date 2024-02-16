@@ -1,0 +1,7 @@
+# Computes x^4 for a given x.
+begin
+    dup
+    dup
+    mul
+    mul
+end

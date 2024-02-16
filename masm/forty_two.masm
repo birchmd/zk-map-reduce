@@ -1,0 +1,5 @@
+# Always returns 42.
+begin
+    drop
+    push.42
+end

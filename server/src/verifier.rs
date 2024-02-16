@@ -1,7 +1,7 @@
 use miden::{Assembler, ExecutionProof, Program, ProgramInfo, StackInputs, StackOutputs};
 use zkmr_types::Submission;
 
-const PROGRAM: &str = include_str!("../../masm/map.masm");
+const PROGRAM: &str = include_str!("../../masm/square.masm");
 
 pub fn compile_program() -> Program {
     let assembler = Assembler::default();
@@ -17,7 +17,13 @@ pub fn validate_submission(program: &Program, submission: &Submission) -> Result
         .iter()
         .map(|x| x.parse().map_err(|_| SubmitError::InvalidOverflow))
         .collect();
-    let stack_outputs = StackOutputs::new(vec![submission.result.into()], overflow_addrs?)
+    let output_stack = submission
+        .output_stack
+        .iter()
+        .copied()
+        .map(Into::into)
+        .collect();
+    let stack_outputs = StackOutputs::new(output_stack, overflow_addrs?)
         .map_err(|_| SubmitError::InvalidOutputs)?;
     let proof_bytes = base64::decode(&submission.proof).map_err(|_| SubmitError::InvalidBase64)?;
     let proof = ExecutionProof::from_bytes(&proof_bytes)

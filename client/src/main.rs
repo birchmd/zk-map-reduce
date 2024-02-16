@@ -1,5 +1,4 @@
 use {
-    self::toggle::Toggle,
     wasm_bindgen::{closure::Closure, prelude::wasm_bindgen, JsCast, JsValue},
     web_sys::{
         Document, Element, HtmlButtonElement, HtmlElement, HtmlInputElement, HtmlSelectElement,
@@ -8,9 +7,8 @@ use {
 };
 
 mod prover;
-mod toggle;
 
-const TOGGLE_ID: &str = "toggle";
+const PROGRAMS_ID: &str = "programs";
 const WORKER_ID: &str = "worker";
 const DROPDOWN_ID: &str = "job_ids";
 const SUBMIT_ID: &str = "submit";
@@ -19,14 +17,12 @@ fn main() -> Result<(), JsValue> {
     let window = web_sys::window().expect("no global `window` exists");
     let document = window.document().expect("should have a document on window");
     let body = document.body().expect("document should have a body");
-    let miden_program = prover::compile_program();
+    let miden_programs = prover::compile_programs();
 
-    // Dishonest toggle
-    let toggle_label = create_label_for(&document, TOGGLE_ID, "Dishonest: ")?;
-    body.append_child(&toggle_label)?;
-    let toggle = Toggle::new(TOGGLE_ID, &document)?;
-    toggle.append_to_body(&body)?;
-    body.append_child(document.create_element("br").as_ref()?)?;
+    // Short paragraph explaining what is going on
+    let p = document.create_element("p")?;
+    p.set_text_content(Some("You are a worker in our map-reduce! You are supposed to run the squaring program, but will you?"));
+    body.append_child(&p)?;
     body.append_child(document.create_element("br").as_ref()?)?;
 
     // Worker ID text input
@@ -37,6 +33,14 @@ fn main() -> Result<(), JsValue> {
     woker_id.set_attribute("type", "text")?;
     body.append_child(&woker_id)?;
     let worker_id: HtmlInputElement = woker_id.dyn_into().unwrap();
+    body.append_child(document.create_element("br").as_ref()?)?;
+    body.append_child(document.create_element("br").as_ref()?)?;
+
+    // Program selection dropdown
+    let programs_label = create_label_for(&document, PROGRAMS_ID, "Program to run: ")?;
+    body.append_child(&programs_label)?;
+    let programs_dd = create_dropdown(&document, DROPDOWN_ID, prover::PROGRAM_NAMES)?;
+    body.append_child(&programs_dd)?;
     body.append_child(document.create_element("br").as_ref()?)?;
     body.append_child(document.create_element("br").as_ref()?)?;
 
@@ -52,22 +56,24 @@ fn main() -> Result<(), JsValue> {
     let submit = create_button(&document, "Submit Proof", SUBMIT_ID, move |button| {
         button.set_disabled(true); // Disable button while proof is being generated
         let job_id: u8 = dropdown.value().parse().unwrap();
-        let proof = prover::prove(&miden_program, job_id);
-        let result = if toggle.is_checked() {
-            proof.value + 1
-        } else {
-            proof.value
-        };
+        let program_name = programs_dd.value();
+        let miden_program = miden_programs
+            .get(program_name.as_str())
+            .expect("Program must be in the map");
+        let proof = prover::prove(miden_program, job_id);
+        let result = proof.output_stack.first().copied().unwrap();
         let overflow_addrs = proof.overflow_addrs.iter().map(|x| x.to_string()).collect();
+        let encoded_proof = proof.encoded();
         let submission = Submission {
             worker_id: worker_id.value(),
             job_id,
-            result,
+            output_stack: proof.output_stack,
             overflow_addrs,
-            proof: proof.encoded(),
+            proof: encoded_proof,
         };
         let json = serde_json::to_string(&submission).unwrap_or_default();
-        submit_to_server(json);
+        let msg = format!("Proof submitted for job ID {job_id} with result {result}");
+        submit_to_server(json, msg);
         button.set_disabled(false);
     })?;
     body.append_child(&submit)?;
@@ -122,7 +128,7 @@ fn create_button<F: FnMut(HtmlButtonElement) + 'static>(
     Ok(elem.dyn_into().unwrap())
 }
 
-#[wasm_bindgen(inline_js = r#"export function submit_to_server(x) {
+#[wasm_bindgen(inline_js = r#"export function submit_to_server(x, alert_msg) {
         fetch("/submit", {
             credentials: "same-origin",
             mode: "same-origin",
@@ -130,8 +136,8 @@ fn create_button<F: FnMut(HtmlButtonElement) + 'static>(
             headers: { "Content-Type": "application/json" },
             body: x
         });
-        alert("Proof submitted");
+        alert(alert_msg);
     }"#)]
 extern "C" {
-    fn submit_to_server(x: String);
+    fn submit_to_server(x: String, alert_msg: String);
 }

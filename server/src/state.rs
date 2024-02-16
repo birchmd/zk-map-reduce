@@ -43,7 +43,7 @@ impl State {
                         if self.pending_jobs.contains(&id) {
                             self.pending_jobs.remove(&id);
                             let message =
-                                format!("Job ID completed by {worker_id}. Result = {result}");
+                                format!("Job ID {id} completed by {worker_id}. Result = {result}");
                             self.job_results.push(result);
                             self.handle_log(message);
                             if self.pending_jobs.is_empty() {

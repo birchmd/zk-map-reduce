@@ -1,0 +1,5 @@
+# Computes x + x for a given x.
+begin
+    dup
+    add
+end
