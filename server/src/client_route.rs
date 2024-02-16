@@ -13,8 +13,12 @@ pub struct ClientFiles {
 }
 
 pub async fn files() -> anyhow::Result<ClientFiles> {
-    let base_path = Path::new("/home/birchmd/rust/zk-map-reduce/client/dist/");
-    let files: io::Result<Vec<PathBuf>> = std::fs::read_dir(base_path)?
+    let base_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("server and client belong to common parent")
+        .join("client")
+        .join("dist");
+    let files: io::Result<Vec<PathBuf>> = std::fs::read_dir(&base_path)?
         .map(|entry| entry.map(|x| x.path()))
         .collect();
     let files = files?;
