@@ -146,7 +146,8 @@ async fn inner_submit_to_server(submission: Submission) -> Result<(), gloo::net:
     let job_id = submission.job_id;
     let result = submission.output_stack.first().copied().unwrap();
     let response = request.send().await?;
-    let submit_message = format!("Proof submitted for job ID {job_id} with result {result}");
+    let submit_message =
+        format!("You submitted a proof with the answer \"{result}\" for job ID {job_id}");
     dialogs::alert(&submit_message);
     let response: zkmr_types::Response = response.json().await?;
     let response_message = format!("Server response: {}", response.result);
