@@ -7,7 +7,7 @@ anyhow = "1"
 base64 = "0.2"
 getrandom = { version = "0.2", features = ["js"] }
 gloo = { version = "0.11", default-features = false, features = ["dialogs", "net"] }
-miden-vm = { version = "0.7", default-features = false }
+miden-vm = { version = "0.8", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
