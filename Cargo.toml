@@ -4,7 +4,7 @@ edition = "2021"
 
 [workspace.dependencies]
 anyhow = "1"
-base64 = "0.2"
+base64 = "0.5"
 getrandom = { version = "0.2", features = ["js"] }
 gloo = { version = "0.11", default-features = false, features = ["dialogs", "net"] }
 miden-vm = { version = "0.8", default-features = false }
