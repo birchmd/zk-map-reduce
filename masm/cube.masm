@@ -1,4 +1,4 @@
-# Computes x^4 for a given x.
+# Computes x^3 for a given x.
 begin
     dup
     dup
